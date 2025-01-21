@@ -233,7 +233,7 @@ class PerfilUsuarioBase(BaseModel):
         orm_mode = True
 
 
-@app.post("/roles/", response_model=RolBase,  tags=["Roles"])
+@app.post("/roles/", response_model=RolBase, tags=["Roles"])
 def create_rol(rol: str, db: Session = Depends(get_db)):
     new_rol = Rol(rol=rol)
     db.add(new_rol)
@@ -242,13 +242,15 @@ def create_rol(rol: str, db: Session = Depends(get_db)):
     return new_rol
 
 
-@app.get("/roles/", response_model=List[RolBase],  tags=["Roles"])
+@app.get("/roles/", response_model=List[RolBase], tags=["Roles"])
 def read_roles(db: Session = Depends(get_db)):
     roles = db.query(Rol).all()
     return roles
 
 
-@app.post("/usuarios/", response_model=UsuarioBase,  tags=["Usuarios"])
+
+
+@app.post("/usuarios/", response_model=UsuarioBase, tags=["Usuarios"])
 def create_usuario(id_roles: int, usuario: str, email: str, contrasena: str, estado: str, db: Session = Depends(get_db)):
     rol = db.query(Rol).filter(Rol.id_roles == id_roles).first()
     if not rol:
@@ -267,7 +269,7 @@ def create_usuario(id_roles: int, usuario: str, email: str, contrasena: str, est
     return new_usuario
 
 
-@app.post("/usuarios/{id_usuario}/perfil", response_model=PerfilUsuarioBase,  tags=["Usuarios"])
+@app.post("/usuarios/{id_usuario}/perfil", response_model=PerfilUsuarioBase, tags=["Perfil Usuarios"])
 def create_perfil(id_usuario: int, nombre_completo: str, genero: str, pais: str = None, idioma: str = None, edad: int = None, foto_perfil_usuario: str = None, db: Session = Depends(get_db)):
     usuario = db.query(Usuario).filter(Usuario.id_usuarios == id_usuario).first()
     if not usuario:
@@ -288,14 +290,14 @@ def create_perfil(id_usuario: int, nombre_completo: str, genero: str, pais: str 
     return new_perfil
 
 
-@app.get("/usuarios/", response_model=List[UsuarioBase],  tags=["Usuarios"])
+@app.get("/usuarios/", response_model=List[UsuarioBase], tags=["Usuarios"])
 def read_usuarios(db: Session = Depends(get_db)):
     usuarios = db.query(Usuario).all()
     return usuarios
 
 
 # Rutas para Clases
-@app.post("/clases/", response_model=Clase, tags=["Clases"])
+@app.post("/clases/", tags=["Clases"])
 def create_clase(nombre_clases: str, descripcion_clases: str, contenido: str = None, foto_clases: str = None, video_clases: str = None, db: Session = Depends(get_db)):
     nueva_clase = Clase(
         nombre_clases=nombre_clases,
@@ -309,13 +311,13 @@ def create_clase(nombre_clases: str, descripcion_clases: str, contenido: str = N
     db.refresh(nueva_clase)
     return nueva_clase
 
-@app.get("/clases/", response_model=List[Clase], tags=["Clases"])
+@app.get("/clases/", tags=["Clases"])
 def read_clases(db: Session = Depends(get_db)):
     clases = db.query(Clase).all()
     return clases
 
 # Rutas para Cuestionarios
-@app.post("/cuestionarios/", response_model=Cuestionario, tags=["Cuestionarios"])
+@app.post("/cuestionarios/", tags=["Cuestionarios"])
 def create_cuestionario(nombre_cuestionario: str, descrip_cuestionario: str, foto_cuestionario: str = None, video_cuestionario: str = None, db: Session = Depends(get_db)):
     nuevo_cuestionario = Cuestionario(
         nombre_cuestionario=nombre_cuestionario,
@@ -328,13 +330,13 @@ def create_cuestionario(nombre_cuestionario: str, descrip_cuestionario: str, fot
     db.refresh(nuevo_cuestionario)
     return nuevo_cuestionario
 
-@app.get("/cuestionarios/", response_model=List[Cuestionario], tags=["Cuestionarios"])
+@app.get("/cuestionarios/", tags=["Cuestionarios"])
 def read_cuestionarios(db: Session = Depends(get_db)):
     cuestionarios = db.query(Cuestionario).all()
     return cuestionarios
 
 # Rutas para Resultados de Cuestionarios
-@app.post("/resultados_cuestionarios/", response_model=ResultadoCuestionario, tags=["Resultados Cuestionarios"])
+@app.post("/resultados_cuestionarios/", tags=["Resultados cuestionarios"])
 def create_resultado_cuestionario(id_questionario: int, id_usuarios: int, nota: int, fecha_completado: datetime, total_correctas: int, total_falladas: int, db: Session = Depends(get_db)):
     nuevo_resultado = ResultadoCuestionario(
         id_questionario=id_questionario,
@@ -349,13 +351,13 @@ def create_resultado_cuestionario(id_questionario: int, id_usuarios: int, nota: 
     db.refresh(nuevo_resultado)
     return nuevo_resultado
 
-@app.get("/resultados_cuestionarios/", response_model=List[ResultadoCuestionario], tags=["Resultados Cuestionarios"])
+@app.get("/resultados_cuestionarios/", tags=["Resultados cuestionarios"])
 def read_resultados_cuestionarios(db: Session = Depends(get_db)):
     resultados = db.query(ResultadoCuestionario).all()
     return resultados
 
 # Rutas para Temarios
-@app.post("/temarios/", response_model=Temario, tags=["Temarios"])
+@app.post("/temarios/", tags=["Temarios"])
 def create_temario(id_clases: int, nombre_temario: str, descrip_temario: str, contenido: str = None, foto_temario: str = None, videos_temario: str = None, db: Session = Depends(get_db)):
     nuevo_temario = Temario(
         id_clases=id_clases,
@@ -370,13 +372,13 @@ def create_temario(id_clases: int, nombre_temario: str, descrip_temario: str, co
     db.refresh(nuevo_temario)
     return nuevo_temario
 
-@app.get("/temarios/", response_model=List[Temario], tags=["Temarios"])
+@app.get("/temarios/", tags=["Temarios"])
 def read_temarios(db: Session = Depends(get_db)):
     temarios = db.query(Temario).all()
     return temarios
 
 # Rutas para Experimentos
-@app.post("/experimentos/", response_model=Experimento, tags=["Experimentos"])
+@app.post("/experimentos/", tags=["Experimentos"])
 def create_experimento(nombre_experimento: str, descrip_experimento: str, foto_experimento: str = None, video_experimento: str = None, db: Session = Depends(get_db)):
     nuevo_experimento = Experimento(
         nombre_experimento=nombre_experimento,
@@ -389,13 +391,13 @@ def create_experimento(nombre_experimento: str, descrip_experimento: str, foto_e
     db.refresh(nuevo_experimento)
     return nuevo_experimento
 
-@app.get("/experimentos/", response_model=List[Experimento], tags=["Experimentos"])
+@app.get("/experimentos/", tags=["Experimentos"])
 def read_experimentos(db: Session = Depends(get_db)):
     experimentos = db.query(Experimento).all()
     return experimentos
 
 # Rutas para Preguntas
-@app.post("/preguntas/", response_model=Pregunta, tags=["Preguntas"])
+@app.post("/preguntas/", tags=["Preguntas"])
 def create_pregunta(id_questionario: int, enunciado: str, respuesta: str, correcta: str, respuesta1: str, respuesta2: str, respuesta3: str, db: Session = Depends(get_db)):
     nueva_pregunta = Pregunta(
         id_questionario=id_questionario,
@@ -411,13 +413,13 @@ def create_pregunta(id_questionario: int, enunciado: str, respuesta: str, correc
     db.refresh(nueva_pregunta)
     return nueva_pregunta
 
-@app.get("/preguntas/", response_model=List[Pregunta], tags=["Preguntas"])
+@app.get("/preguntas/", tags=["Preguntas"])
 def read_preguntas(db: Session = Depends(get_db)):
     preguntas = db.query(Pregunta).all()
     return preguntas
 
 # Rutas para Clases Usuarios
-@app.post("/clases_usuarios/", response_model=dict, tags=["Clases Usuarios"])
+@app.post("/clases_usuarios/", tags=["Clases Usuarios"])
 def create_clase_usuario(id_usuarios: int, id_clases: int, db: Session = Depends(get_db)):
     nueva_clase_usuario = ClaseUsuario(
         id_usuarios=id_usuarios,
@@ -427,13 +429,13 @@ def create_clase_usuario(id_usuarios: int, id_clases: int, db: Session = Depends
     db.commit()
     return {"message": "Usuario asignado a la clase con éxito"}
 
-@app.get("/clases_usuarios/", response_model=List[ClaseUsuario], tags=["Clases Usuarios"])
+@app.get("/clases_usuarios/", tags=["Clases Usuarios"])
 def read_clases_usuarios(db: Session = Depends(get_db)):
     clases_usuarios = db.query(ClaseUsuario).all()
     return clases_usuarios
 
 # Rutas para Temarios Cuestionarios
-@app.post("/temarios_cuestionarios/", response_model=dict, tags=["Temarios Cuestionarios"])
+@app.post("/temarios_cuestionarios/", tags=["Temarios Cuestionarios"])
 def create_temario_cuestionario(id_clases: int, id_questionario: int, id_temario: int, db: Session = Depends(get_db)):
     nuevo_temario_cuestionario = TemarioCuestionario(
         id_clases=id_clases,
@@ -444,13 +446,13 @@ def create_temario_cuestionario(id_clases: int, id_questionario: int, id_temario
     db.commit()
     return {"message": "Cuestionario asignado al temario con éxito"}
 
-@app.get("/temarios_cuestionarios/", response_model=List[TemarioCuestionario], tags=["Temarios Cuestionarios"])
+@app.get("/temarios_cuestionarios/", tags=["Temarios Cuestionarios"])
 def read_temarios_cuestionarios(db: Session = Depends(get_db)):
     temarios_cuestionarios = db.query(TemarioCuestionario).all()
     return temarios_cuestionarios
 
 # Rutas para Videos Experimentos
-@app.post("/videos_experimentos/", response_model=VideoExperimento, tags=["Videos Experimentos"])
+@app.post("/videos_experimentos/", tags=["Videos Experimentos"])
 def create_video_experimento(id_experimento: int, nombre_experimento: str, descrip_experimento: str, video_experimento: str, db: Session = Depends(get_db)):
     nuevo_video_experimento = VideoExperimento(
         id_experimento=id_experimento,
@@ -463,13 +465,13 @@ def create_video_experimento(id_experimento: int, nombre_experimento: str, descr
     db.refresh(nuevo_video_experimento)
     return nuevo_video_experimento
 
-@app.get("/videos_experimentos/", response_model=List[VideoExperimento], tags=["Videos Experimentos"])
+@app.get("/videos_experimentos/", tags=["Videos Experimentos"])
 def read_videos_experimentos(db: Session = Depends(get_db)):
     videos_experimentos = db.query(VideoExperimento).all()
     return videos_experimentos
 
 # Rutas para Datos Experimentos
-@app.post("/datos_experimentos/", response_model=DatoExperimento, tags=["Datos Experimentos"])
+@app.post("/datos_experimentos/", tags=["Datos Experimentos"])
 def create_datos_experimento(id_datos: str, id_experimento: int, masa1: float = None, masa2: float = None, masa3: float = None, masa4: float = None, velocidad1: float = None, velocidad2: float = None, velocidad3: float = None, velocidad4: float = None, velocidad5: float = None, altura1: float = None, altura2: float = None, altura3: float = None, altura4: float = None, tiempo1: float = None, tiempo2: float = None, tiempo3: float = None, tiempo4: float = None, db: Session = Depends(get_db)):
     nuevo_dato_experimento = DatoExperimento(
         id_datos=id_datos,
@@ -497,13 +499,13 @@ def create_datos_experimento(id_datos: str, id_experimento: int, masa1: float = 
     db.refresh(nuevo_dato_experimento)
     return nuevo_dato_experimento
 
-@app.get("/datos_experimentos/", response_model=List[DatoExperimento], tags=["Datos Experimentos"])
+@app.get("/datos_experimentos/", tags=["Datos Experimentos"])
 def read_datos_experimentos(db: Session = Depends(get_db)):
     datos_experimentos = db.query(DatoExperimento).all()
     return datos_experimentos
 
 # Rutas para Temarios Experimentos
-@app.post("/temarios_experimentos/", response_model=dict, tags=["Temarios Experimentos"])
+@app.post("/temarios_experimentos/", tags=["Temarios Experimentos"])
 def create_temario_experimento(id_temario: int, id_experimento: int, db: Session = Depends(get_db)):
     nuevo_temario_experimento = TemarioExperimento(
         id_temario=id_temario,
@@ -513,7 +515,7 @@ def create_temario_experimento(id_temario: int, id_experimento: int, db: Session
     db.commit()
     return {"message": "Experimento asignado al temario con éxito"}
 
-@app.get("/temarios_experimentos/", response_model=List[TemarioExperimento], tags=["Temarios Experimentos"])
+@app.get("/temarios_experimentos/", tags=["Temarios Experimentos"])
 def read_temarios_experimentos(db: Session = Depends(get_db)):
     temarios_experimentos = db.query(TemarioExperimento).all()
     return temarios_experimentos
