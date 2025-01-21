@@ -1,8 +1,8 @@
 import os
 from fastapi import FastAPI, HTTPException, Depends
-from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy import create_engine, Column, Integer, String, Enum, Timestamp, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker, Session, relationship
 
 # Leer las variables de entorno
 DATABASE = os.getenv("DATABASE", "test_db")
@@ -19,12 +19,30 @@ engine = create_engine(DATABASE_URL, echo=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# Definir un modelo de ejemplo
-class ExampleModel(Base):
-    __tablename__ = "examples"
+# Definir modelos
+class Usuario(Base):
+    __tablename__ = "USUARIOS"
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), nullable=False)
+    id_usuarios = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    id_roles = Column(Integer, nullable=False)
+    usuario = Column(String(20), nullable=False)
+    email = Column(String(150), nullable=False)
+    contrasena = Column(String(255), nullable=False)
+    estado = Column(Enum('activa', 'desactivada'), nullable=False)
+    fecha_creacion = Column(Timestamp, nullable=False)
+    perfil = relationship("PerfilUsuario", back_populates="usuario")
+
+class PerfilUsuario(Base):
+    __tablename__ = "PERFIL_USUARIOS"
+
+    id_usuarios = Column(Integer, ForeignKey("USUARIOS.id_usuarios"), primary_key=True)
+    nombre_completo = Column(String(100), nullable=False)
+    genero = Column(Enum('hombre', 'mujer', 'no binario', 'prefiero no decirlo'), nullable=False)
+    pais = Column(String(60))
+    idioma = Column(Enum('catalan', 'castellano', 'ingles'))
+    edad = Column(Integer, nullable=False)
+    foto_perfil_usuario = Column(String(100))
+    usuario = relationship("Usuario", back_populates="perfil")
 
 # Crear las tablas en la base de datos
 Base.metadata.create_all(bind=engine)
@@ -40,20 +58,48 @@ def get_db():
     finally:
         db.close()
 
-# Endpoint para agregar un registro de ejemplo
-@app.post("/examples/", response_model=dict)
-def create_example(name: str, db: Session = Depends(get_db)):
-    new_example = ExampleModel(name=name)
-    db.add(new_example)
+# Endpoint para agregar un usuario
+@app.post("/usuarios/", response_model=dict)
+def create_usuario(id_roles: int, usuario: str, email: str, contrasena: str, estado: str, db: Session = Depends(get_db)):
+    new_usuario = Usuario(
+        id_roles=id_roles,
+        usuario=usuario,
+        email=email,
+        contrasena=contrasena,
+        estado=estado,
+        fecha_creacion="CURRENT_TIMESTAMP"
+    )
+    db.add(new_usuario)
     db.commit()
-    db.refresh(new_example)
-    return {"id": new_example.id, "name": new_example.name}
+    db.refresh(new_usuario)
+    return {"id_usuarios": new_usuario.id_usuarios, "usuario": new_usuario.usuario}
 
-# Endpoint para listar registros de ejemplo
-@app.get("/examples/", response_model=list)
-def read_examples(db: Session = Depends(get_db)):
-    examples = db.query(ExampleModel).all()
-    return examples
+# Endpoint para agregar un perfil de usuario
+@app.post("/usuarios/{id_usuario}/perfil", response_model=dict)
+def create_perfil(id_usuario: int, nombre_completo: str, genero: str, pais: str = None, idioma: str = None, edad: int = None, foto_perfil_usuario: str = None, db: Session = Depends(get_db)):
+    usuario = db.query(Usuario).filter(Usuario.id_usuarios == id_usuario).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    new_perfil = PerfilUsuario(
+        id_usuarios=id_usuario,
+        nombre_completo=nombre_completo,
+        genero=genero,
+        pais=pais,
+        idioma=idioma,
+        edad=edad,
+        foto_perfil_usuario=foto_perfil_usuario
+    )
+    db.add(new_perfil)
+    db.commit()
+    db.refresh(new_perfil)
+    return {"id_usuarios": new_perfil.id_usuarios, "nombre_completo": new_perfil.nombre_completo}
+
+# Endpoint para listar usuarios
+@app.get("/usuarios/", response_model=list)
+def read_usuarios(db: Session = Depends(get_db)):
+    usuarios = db.query(Usuario).all()
+    return usuarios
 
 # Endpoint para manejar errores de conexión
 @app.get("/health/", response_model=dict)
