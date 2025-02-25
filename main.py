@@ -86,6 +86,16 @@ class PerfilUsuario(Base):
     foto_perfil_usuario = Column(String(100))
     usuario = relationship("Usuario", back_populates="perfil")
 
+# Agrega la definición de la tabla Videos, si aún no existe
+class Video(Base):
+    __tablename__ = "VIDEOS"
+    
+    idVideo = Column(Integer, primary_key=True, autoincrement=True)
+    imagenVideo = Column(String(100))
+    rutaVideo = Column(String(200))
+    tituloVideo = Column(String(100))
+    idClase = Column(Integer, ForeignKey("CLASES.id_clases"), nullable=False)
+
 
 # Tablas adicionales
 class Temario(Base):
@@ -133,6 +143,7 @@ class Cuestionario(Base):
     descrip_cuestionario = Column(String(500), nullable=False)
     foto_cuestionario = Column(String(100))
     video_cuestionario = Column(String(100))
+    fecha_publicacion = Column(DateTime, default=datetime.utcnow)
 
 
 class ResultadoCuestionario(Base):
@@ -155,6 +166,8 @@ class Experimento(Base):
     descrip_experimento = Column(String(500), nullable=False)
     foto_experimento = Column(String(100))
     video_experimento = Column(String(100))
+
+
 
 class Pregunta(Base):
     __tablename__ = "PREGUNTAS"
@@ -218,6 +231,45 @@ class RolBase(BaseModel):
     class Config:
         orm_mode = True
 
+# Genera el esquema Pydantic para la respuesta
+class VideoDetail(BaseModel):
+    idVideo: int
+    imagenVideo: Optional[str] = None
+    rutaVideo: Optional[str] = None
+    tituloVideo: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+
+class ClaseDetail(BaseModel):
+    id_clases: int
+    nombre_clases: str
+    descripcion_clases: str
+    foto_clases: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+class TemarioDetail(BaseModel):
+    id_temario: int
+    id_clases: int
+    nombre_temario: str
+    descrip_temario: str
+    contenido: Optional[str] = None
+    foto_temario: Optional[str] = None
+    videos_temario: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+class CuestionarioResponse(BaseModel):
+    id_questionario: int
+    nombre_cuestionario: str
+    fecha_publicacion: datetime
+
+    class Config:
+        orm_mode = True
 
 class UsuarioBase(BaseModel):
     id_usuarios: int
@@ -227,6 +279,26 @@ class UsuarioBase(BaseModel):
     estado: str
     fecha_creacion: datetime
     rol: RolBase
+
+    class Config:
+        orm_mode = True
+
+
+class ExperimentoDetail(BaseModel):
+    id_experimento: int
+    nombre_experimento: str
+    descrip_experimento: str
+    foto_experimento: Optional[str]
+    video_experimento: Optional[str]
+
+    class Config:
+        orm_mode = True
+
+# Agregar este modelo Pydantic para el resumen de experimentos
+class ExperimentoResumen(BaseModel):
+    id_experimento: int
+    nombre_experimento: str
+    foto_experimento: Optional[str]
 
     class Config:
         orm_mode = True
@@ -252,6 +324,17 @@ class PerfilUsuarioBase(BaseModel):
     class Config:
         orm_mode = True
 
+class CuestionarioDetail(BaseModel):
+    id_questionario: int
+    nombre_cuestionario: str
+    descrip_cuestionario: str
+    foto_cuestionario: Optional[str] = None
+    video_cuestionario: Optional[str] = None
+    fecha_publicacion: datetime
+
+    class Config:
+        orm_mode = True
+
 #Rutas roles
 @app.post("/roles/", response_model=RolBase, tags=["Roles"])
 def create_rol(rol: str, db: Session = Depends(get_db)):
@@ -268,6 +351,22 @@ def read_roles(db: Session = Depends(get_db)):
     return roles
 
 
+@app.get("/temarios/contenido/{id_clases}", response_model=List[str], tags=["Temarios"])
+def get_contenido_temarios_by_clase(id_clases: int, db: Session = Depends(get_db)):
+    # Se consulta únicamente el campo "contenido" de aquellos temarios con el id_clases especificado
+    temarios = db.query(Temario.contenido).filter(Temario.id_clases == id_clases).all()
+    if not temarios:
+        raise HTTPException(status_code=404, detail="No se encontraron temarios para la clase especificada")
+    # Cada resultado se devuelve como una tupla, se extrae el primer elemento (contenido)
+    return [contenido for (contenido,) in temarios if contenido is not None]
+
+@app.get("/temarios/clase/{id_clases}", response_model=List[TemarioDetail], tags=["Temarios"])
+def get_temarios_by_clase(id_clases: int, db: Session = Depends(get_db)):
+    temarios = db.query(Temario).filter(Temario.id_clases == id_clases).all()
+    if not temarios:
+        raise HTTPException(status_code=404, detail="No se encontraron temarios para la clase especificada")
+    return temarios
+
 @app.delete("/roles/{role_id}", response_model=RolBase, tags=["Roles"])
 def delete_rol(role_id: int, db: Session = Depends(get_db)):
     rol = db.query(Rol).filter(Rol.id_roles == role_id).first()
@@ -276,6 +375,14 @@ def delete_rol(role_id: int, db: Session = Depends(get_db)):
     db.delete(rol)
     db.commit()
     return rol
+
+
+@app.get("/clases/{clase_id}", response_model=ClaseDetail, tags=["Clases"])
+def get_clase(clase_id: int, db: Session = Depends(get_db)):
+    clase = db.query(Clase).filter(Clase.id_clases == clase_id).first()
+    if not clase:
+        raise HTTPException(status_code=404, detail="Clase no encontrada")
+    return clase
 
 
 @app.put("/roles/{role_id}", response_model=RolBase, tags=["Roles"])
@@ -288,7 +395,21 @@ def update_rol(role_id: int, rol: str, db: Session = Depends(get_db)):
     db.refresh(existing_rol)
     return existing_rol
 
+@app.get("/experimentos/{experimento_id}", response_model=ExperimentoDetail, tags=["Experimentos"])
+def get_experimento(experimento_id: int, db: Session = Depends(get_db)):
+    experimento = db.query(Experimento).filter(Experimento.id_experimento == experimento_id).first()
+    if not experimento:
+        raise HTTPException(status_code=404, detail="Experimento no encontrado")
+    return experimento
 
+
+# Endpoint GET para obtener los videos de una clase en específico
+@app.get("/videos/{idClase}", response_model=List[VideoDetail], tags=["Videos"])
+def get_videos_by_clase(idClase: int, db: Session = Depends(get_db)):
+    videos = db.query(Video).filter(Video.idClase == idClase).all()
+    if not videos:
+        raise HTTPException(status_code=404, detail="No se encontraron videos para la clase especificada")
+    return videos
 
 #Rutas usuarios
 
@@ -342,6 +463,13 @@ def update_usuario(id_usuario: int, id_roles: int, usuario: str, email: str, con
     return existing_usuario
 
 
+@app.get("/clases/{clase_id}", response_model=ClaseDetail, tags=["Clases"])
+def get_clase(clase_id: int, db: Session = Depends(get_db)):
+    clase = db.query(Clase).filter(Clase.id_clases == clase_id).first()
+    if not clase:
+        raise HTTPException(status_code=404, detail="Clase no encontrada")
+    return clase
+
 #Rutas perfil usuarios
 
 @app.post("/usuarios/{id_usuario}/perfil", response_model=PerfilUsuarioBase, tags=["Perfil Usuarios"])
@@ -363,6 +491,23 @@ def create_perfil(id_usuario: int, nombre_completo: str, genero: str, pais: str 
     db.commit()
     db.refresh(new_perfil)
     return new_perfil
+
+# Endpoint GET para obtener los cuestionarios dependiendo del id_clases
+@app.get("/cuestionarios/clase/{id_clases}", response_model=List[CuestionarioResponse], tags=["Cuestionarios"])
+def get_cuestionarios_por_clase(id_clases: int, db: Session = Depends(get_db)):
+    cuestionarios = (
+        db.query(
+            Cuestionario.id_questionario,
+            Cuestionario.nombre_cuestionario,
+            Cuestionario.fecha_publicacion
+        )
+        .join(TemarioCuestionario, Cuestionario.id_questionario == TemarioCuestionario.id_questionario)
+        .filter(TemarioCuestionario.id_clases == id_clases)
+        .all()
+    )
+    if not cuestionarios:
+        raise HTTPException(status_code=404, detail="No se encontraron cuestionarios para la clase especificada")
+    return cuestionarios
 
 
 #Rutas clases
@@ -402,6 +547,12 @@ def update_clase(clase_id: int, nombre_clases: str, descripcion_clases: str, con
     db.refresh(existing_clase)
     return existing_clase
 
+# Agregar el endpoint GET para obtener el resumen de experimentos
+@app.get("/experimentos/resumen", response_model=List[ExperimentoResumen], tags=["Experimentos"])
+def get_experimentos_resumen(db: Session = Depends(get_db)):
+    experimentos = db.query(Experimento.id_experimento, Experimento.nombre_experimento, Experimento.foto_experimento).all()
+    return experimentos
+
 
 @app.delete("/clases/{clase_id}", tags=["Clases"])
 def delete_clase(clase_id: int, db: Session = Depends(get_db)):
@@ -425,6 +576,14 @@ def create_cuestionario(nombre_cuestionario: str, descrip_cuestionario: str, fot
     db.commit()
     db.refresh(nuevo_cuestionario)
     return nuevo_cuestionario
+
+
+@app.get("/cuestionarios/{cuestionario_id}", response_model=CuestionarioDetail, tags=["Cuestionarios"])
+def get_cuestionario(cuestionario_id: int, db: Session = Depends(get_db)):
+    cuestionario = db.query(Cuestionario).filter(Cuestionario.id_questionario == cuestionario_id).first()
+    if not cuestionario:
+        raise HTTPException(status_code=404, detail="Cuestionario no encontrado")
+    return cuestionario
 
 
 @app.get("/cuestionarios/", tags=["Cuestionarios"])
@@ -550,6 +709,14 @@ def delete_temario(temario_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Temario no encontrado")
     db.delete(temario)
     db.commit()
+    return temario
+
+
+@app.get("/temarios/{temario_id}", response_model=TemarioDetail, tags=["Temarios"])
+def get_temario(temario_id: int, db: Session = Depends(get_db)):
+    temario = db.query(Temario).filter(Temario.id_temario == temario_id).first()
+    if not temario:
+        raise HTTPException(status_code=404, detail="Temario no encontrado")
     return temario
 
 # Rutas para Experimentos
