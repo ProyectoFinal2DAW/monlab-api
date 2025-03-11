@@ -1043,6 +1043,18 @@ def update_temario_experimento(id: int, id_temario: int, id_experimento: int, db
     db.refresh(existing_temario_experimento)
     return {"message": "Temario Experimento actualizado con éxito"}
 
+@app.get("/clases/{clase_id}/participantes", response_model=List[UsuarioBase], tags=["Clases"])
+def get_participantes_de_clase(clase_id: int, db: Session = Depends(get_db)):
+    participantes = (
+        db.query(Usuario)
+        .join(ClaseUsuario, ClaseUsuario.id_usuarios == Usuario.id_usuarios)
+        .filter(ClaseUsuario.id_clases == clase_id)
+        .all()
+    )
+    if not participantes:
+        raise HTTPException(status_code=404, detail="No se encontraron participantes para la clase especificada")
+    return participantes
+
 
 @app.delete("/temarios_experimentos/{id}", tags=["Temarios Experimentos"])
 def delete_temario_experimento(id: int, db: Session = Depends(get_db)):
