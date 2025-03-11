@@ -283,6 +283,17 @@ class UsuarioBase(BaseModel):
     class Config:
         orm_mode = True
 
+class CuestionarioCalificacion(BaseModel):
+    id_questionario: int
+    nombre_cuestionario: str
+    nota: int
+    fecha_completado: datetime
+    total_correctas: int
+    total_falladas: int
+
+    class Config:
+        orm_mode = True
+
 
 class ExperimentoDetail(BaseModel):
     id_experimento: int
@@ -1064,6 +1075,34 @@ def delete_temario_experimento(id: int, db: Session = Depends(get_db)):
     db.delete(temario_experimento)
     db.commit()
     return {"message": "Temario Experimento eliminado con éxito"}
+
+
+@app.get("/cuestionarios/clase/{id_clases}/usuario/{id_usuario}", response_model=List[CuestionarioCalificacion], tags=["Cuestionarios"])
+def get_cuestionarios_calificacion_por_clase(id_clases: int, id_usuario: int, db: Session = Depends(get_db)):
+    resultados = (
+        db.query(
+            Cuestionario.id_questionario,
+            Cuestionario.nombre_cuestionario,
+            ResultadoCuestionario.nota,
+            ResultadoCuestionario.fecha_completado,
+            ResultadoCuestionario.total_correctas,
+            ResultadoCuestionario.total_falladas
+        )
+        .join(TemarioCuestionario, Cuestionario.id_questionario == TemarioCuestionario.id_questionario)
+        .join(
+            ResultadoCuestionario,
+            (ResultadoCuestionario.id_questionario == Cuestionario.id_questionario)
+            & (ResultadoCuestionario.id_usuarios == id_usuario)
+        )
+        .filter(TemarioCuestionario.id_clases == id_clases)
+        .all()
+    )
+    if not resultados:
+        raise HTTPException(
+            status_code=404,
+            detail="No se encontraron cuestionarios con calificación para la clase y usuario especificados"
+        )
+    return [dict(zip(["id_questionario", "nombre_cuestionario", "nota", "fecha_completado", "total_correctas", "total_falladas"], r)) for r in resultados]
 
 @app.get("/health/", response_model=dict, tags=["Health"])
 def health_check(db: Session = Depends(get_db)):
