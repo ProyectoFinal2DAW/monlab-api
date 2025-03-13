@@ -110,7 +110,7 @@ class Temario(Base):
     videos_temario = Column(String(100))
 
 class TemarioCuestionario(Base):
-    __tablename__ = "TEMARIOS_CUESTIONARIOS"
+    __tablename__ = "TEMEARIOS_CUESTIONARIOS"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     id_clases = Column(Integer, ForeignKey("CLASES.id_clases"), nullable=False)
@@ -126,6 +126,8 @@ class Clase(Base):
     contenido = Column(String(100))
     foto_clases = Column(String(100))
     video_clases = Column(String(100))
+
+
 
 
 class ClaseUsuario(Base):
@@ -231,15 +233,7 @@ class RolBase(BaseModel):
     class Config:
         orm_mode = True
 
-# Genera el esquema Pydantic para la respuesta
-class VideoDetail(BaseModel):
-    idVideo: int
-    imagenVideo: Optional[str] = None
-    rutaVideo: Optional[str] = None
-    tituloVideo: Optional[str] = None
 
-    class Config:
-        orm_mode = True
 
 
 class ClaseDetail(BaseModel):
@@ -247,6 +241,19 @@ class ClaseDetail(BaseModel):
     nombre_clases: str
     descripcion_clases: str
     foto_clases: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+
+class ResultadoAlumnoResponse(BaseModel):
+    id_resultado_cuestionario: int
+    id_questionario: int
+    id_usuarios: int
+    nota: int
+    fecha_completado: datetime
+    total_correctas: int
+    total_falladas: int
 
     class Config:
         orm_mode = True
@@ -283,16 +290,7 @@ class UsuarioBase(BaseModel):
     class Config:
         orm_mode = True
 
-class CuestionarioCalificacion(BaseModel):
-    id_questionario: int
-    nombre_cuestionario: str
-    nota: int
-    fecha_completado: datetime
-    total_correctas: int
-    total_falladas: int
 
-    class Config:
-        orm_mode = True
 
 
 class ExperimentoDetail(BaseModel):
@@ -304,23 +302,6 @@ class ExperimentoDetail(BaseModel):
 
     class Config:
         orm_mode = True
-
-# Agregar este modelo Pydantic para el resumen de experimentos
-class ExperimentoResumen(BaseModel):
-    id_experimento: int
-    nombre_experimento: str
-    foto_experimento: Optional[str]
-
-    class Config:
-        orm_mode = True
-
-class ExperimentoResponse(BaseModel):
-    nombre_experimento: str
-    descrip_experimento: str
-    foto_experimento: str
-
-    class Config:
-        orm_mode = True        
 
 
 class PerfilUsuarioBase(BaseModel):
@@ -378,6 +359,16 @@ def get_temarios_by_clase(id_clases: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="No se encontraron temarios para la clase especificada")
     return temarios
 
+@app.get("/temarios/clase/{id_clases}/videos", tags=["Temarios"])
+def get_videos_temarios_by_clase(id_clases: int, db: Session = Depends(get_db)):
+    videos = db.query(Temario.videos_temario).filter(Temario.id_clases == id_clases).all()
+    if not videos:
+        raise HTTPException(status_code=404, detail="No se encontraron temarios para la clase especificada")
+    videos_list = [video for (video,) in videos if video is not None]
+    if not videos_list:
+        raise HTTPException(status_code=404, detail="No se encontraron videos disponibles para la clase especificada")
+    return videos_list
+
 @app.delete("/roles/{role_id}", response_model=RolBase, tags=["Roles"])
 def delete_rol(role_id: int, db: Session = Depends(get_db)):
     rol = db.query(Rol).filter(Rol.id_roles == role_id).first()
@@ -414,16 +405,8 @@ def get_experimento(experimento_id: int, db: Session = Depends(get_db)):
     return experimento
 
 
-# Endpoint GET para obtener los videos de una clase en específico
-@app.get("/videos/{idClase}", response_model=List[VideoDetail], tags=["Videos"])
-def get_videos_by_clase(idClase: int, db: Session = Depends(get_db)):
-    videos = db.query(Video).filter(Video.idClase == idClase).all()
-    if not videos:
-        raise HTTPException(status_code=404, detail="No se encontraron videos para la clase especificada")
-    return videos
 
 #Rutas usuarios
-
 @app.post("/usuarios/", response_model=UsuarioBase, tags=["Usuarios"])
 def create_usuario(id_roles: int, usuario: str, email: str, contrasena: str, estado: str, db: Session = Depends(get_db)):
     rol = db.query(Rol).filter(Rol.id_roles == id_roles).first()
@@ -558,13 +541,6 @@ def update_clase(clase_id: int, nombre_clases: str, descripcion_clases: str, con
     db.refresh(existing_clase)
     return existing_clase
 
-# Agregar el endpoint GET para obtener el resumen de experimentos
-@app.get("/experimentos/resumen", response_model=List[ExperimentoResumen], tags=["Experimentos"])
-def get_experimentos_resumen(db: Session = Depends(get_db)):
-    experimentos = db.query(Experimento.id_experimento, Experimento.nombre_experimento, Experimento.foto_experimento).all()
-    return experimentos
-
-
 @app.delete("/clases/{clase_id}", tags=["Clases"])
 def delete_clase(clase_id: int, db: Session = Depends(get_db)):
     clase = db.query(Clase).filter(Clase.id_clases == clase_id).first()
@@ -641,6 +617,18 @@ def create_resultado_cuestionario(id_questionario: int, id_usuarios: int, nota: 
     db.commit()
     db.refresh(nuevo_resultado)
     return nuevo_resultado
+
+@app.get("/notas/clase/{id_clases}/usuario/{id_usuario}", response_model=List[ResultadoAlumnoResponse], tags=["Notas"])
+def get_notas_por_clase_usuario(id_clases: int, id_usuario: int, db: Session = Depends(get_db)):
+    resultados = (
+        db.query(ResultadoCuestionario)
+        .join(TemarioCuestionario, ResultadoCuestionario.id_questionario == TemarioCuestionario.id_questionario)
+        .filter(ResultadoCuestionario.id_usuarios == id_usuario, TemarioCuestionario.id_clases == id_clases)
+        .all()
+    )
+    if not resultados:
+        raise HTTPException(status_code=404, detail="No se encontraron resultados para la clase y el usuario especificados")
+    return resultados
 
 
 @app.get("/resultados_cuestionarios/", tags=["Resultados cuestionarios"])
@@ -750,11 +738,6 @@ def read_experimentos(db: Session = Depends(get_db)):
     experimentos = db.query(Experimento).all()
     return experimentos
 
-@app.get("/experimentoss/", response_model=List[ExperimentoResponse], tags=["Experimentos"])
-def read_experimentos(db: Session = Depends(get_db)):
-    experimentoss = db.query(Experimento.nombre_experimento, Experimento.descrip_experimento, Experimento.foto_experimento).all()
-    return experimentoss
-
 @app.put("/experimentos/{experimento_id}", tags=["Experimentos"])
 def update_experimento(experimento_id: int, nombre_experimento: str, descrip_experimento: str, foto_experimento: str = None, video_experimento: str = None, db: Session = Depends(get_db)):
     existing_experimento = db.query(Experimento).filter(Experimento.id_experimento == experimento_id).first()
@@ -803,11 +786,26 @@ def read_preguntas(db: Session = Depends(get_db)):
 
 
 @app.put("/preguntas/{pregunta_id}", tags=["Preguntas"])
-def update_pregunta(pregunta_id: int, id_questionario: int, enunciado: str, respuesta: str, correcta: str, respuesta1: str, respuesta2: str, respuesta3: str, db: Session = Depends(get_db)):
-    existing_pregunta = db.query(Pregunta).filter(Pregunta.id_pregunta == pregunta_id).first()
+def update_pregunta(
+    pregunta_id: int, 
+    id_questionario: int, 
+    enunciado: str, 
+    respuesta: str, 
+    correcta: str, 
+    respuesta1: str, 
+    respuesta2: str, 
+    respuesta3: str, 
+    db: Session = Depends(get_db)
+):
+    existing_pregunta = db.query(Pregunta).filter(
+        Pregunta.id_pregunta == pregunta_id,
+        Pregunta.id_questionario == id_questionario
+    ).first()
     if not existing_pregunta:
-        raise HTTPException(status_code=404, detail="Pregunta no encontrada")
-    existing_pregunta.id_questionario = id_questionario
+        raise HTTPException(
+            status_code=404, 
+            detail="Pregunta no encontrada para el cuestionario especificado"
+        )
     existing_pregunta.enunciado = enunciado
     existing_pregunta.respuesta = respuesta
     existing_pregunta.correcta = correcta
@@ -1076,33 +1074,6 @@ def delete_temario_experimento(id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Temario Experimento eliminado con éxito"}
 
-
-@app.get("/cuestionarios/clase/{id_clases}/usuario/{id_usuario}", response_model=List[CuestionarioCalificacion], tags=["Cuestionarios"])
-def get_cuestionarios_calificacion_por_clase(id_clases: int, id_usuario: int, db: Session = Depends(get_db)):
-    resultados = (
-        db.query(
-            Cuestionario.id_questionario,
-            Cuestionario.nombre_cuestionario,
-            ResultadoCuestionario.nota,
-            ResultadoCuestionario.fecha_completado,
-            ResultadoCuestionario.total_correctas,
-            ResultadoCuestionario.total_falladas
-        )
-        .join(TemarioCuestionario, Cuestionario.id_questionario == TemarioCuestionario.id_questionario)
-        .join(
-            ResultadoCuestionario,
-            (ResultadoCuestionario.id_questionario == Cuestionario.id_questionario)
-            & (ResultadoCuestionario.id_usuarios == id_usuario)
-        )
-        .filter(TemarioCuestionario.id_clases == id_clases)
-        .all()
-    )
-    if not resultados:
-        raise HTTPException(
-            status_code=404,
-            detail="No se encontraron cuestionarios con calificación para la clase y usuario especificados"
-        )
-    return [dict(zip(["id_questionario", "nombre_cuestionario", "nota", "fecha_completado", "total_correctas", "total_falladas"], r)) for r in resultados]
 
 @app.get("/health/", response_model=dict, tags=["Health"])
 def health_check(db: Session = Depends(get_db)):
