@@ -895,6 +895,13 @@ def update_temario_cuestionario(id: int, id_clases: int, id_questionario: int, i
     db.refresh(existing_temario_cuestionario)
     return {"message": "Temario Cuestionario actualizado con éxito"}
 
+@app.get("/preguntas/questionario/{id_questionario}", tags=["Preguntas"])
+def get_preguntas_by_questionario(id_questionario: int, db: Session = Depends(get_db)):
+    preguntas = db.query(Pregunta).filter(Pregunta.id_questionario == id_questionario).all()
+    if not preguntas:
+        raise HTTPException(status_code=404, detail="No se encontraron preguntas para el cuestionario especificado")
+    return preguntas
+
 
 @app.delete("/temarios_cuestionarios/{id}", tags=["Temarios Cuestionarios"])
 def delete_temario_cuestionario(id: int, db: Session = Depends(get_db)):
