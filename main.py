@@ -159,6 +159,8 @@ class ResultadoCuestionario(Base):
     total_correctas = Column(Integer, nullable=False)
     total_falladas = Column(Integer, nullable=False)
 
+    
+
 
 class Experimento(Base):
     __tablename__ = "EXPERIMENTOS"
@@ -233,7 +235,18 @@ class RolBase(BaseModel):
     class Config:
         orm_mode = True
 
+class ResultadoAlumnoConCuestionarioResponse(BaseModel):
+    id_resultado_cuestionario: int
+    id_questionario: int
+    id_usuarios: int
+    nota: int
+    fecha_completado: datetime
+    total_correctas: int
+    total_falladas: int
+    nombre_cuestionario: str
 
+    class Config:
+        orm_mode = True
 
 
 class ClaseDetail(BaseModel):
@@ -618,17 +631,36 @@ def create_resultado_cuestionario(id_questionario: int, id_usuarios: int, nota: 
     db.refresh(nuevo_resultado)
     return nuevo_resultado
 
-@app.get("/notas/clase/{id_clases}/usuario/{id_usuario}", response_model=List[ResultadoAlumnoResponse], tags=["Notas"])
+@app.get("/notas/clase/{id_clases}/usuario/{id_usuario}", response_model=List[ResultadoAlumnoConCuestionarioResponse], tags=["Notas"])
 def get_notas_por_clase_usuario(id_clases: int, id_usuario: int, db: Session = Depends(get_db)):
     resultados = (
-        db.query(ResultadoCuestionario)
+        db.query(ResultadoCuestionario, Cuestionario.nombre_cuestionario)
         .join(TemarioCuestionario, ResultadoCuestionario.id_questionario == TemarioCuestionario.id_questionario)
-        .filter(ResultadoCuestionario.id_usuarios == id_usuario, TemarioCuestionario.id_clases == id_clases)
+        .join(Cuestionario, Cuestionario.id_questionario == ResultadoCuestionario.id_questionario)
+        .filter(
+            ResultadoCuestionario.id_usuarios == id_usuario,
+            TemarioCuestionario.id_clases == id_clases
+        )
         .all()
     )
     if not resultados:
-        raise HTTPException(status_code=404, detail="No se encontraron resultados para la clase y el usuario especificados")
-    return resultados
+        raise HTTPException(
+            status_code=404, 
+            detail="No se encontraron resultados para la clase y el usuario especificados"
+        )
+    response = []
+    for resultado, nombre in resultados:
+        response.append({
+            "id_resultado_cuestionario": resultado.id_resultado_cuestionario,
+            "id_questionario": resultado.id_questionario,
+            "id_usuarios": resultado.id_usuarios,
+            "nota": resultado.nota,
+            "fecha_completado": resultado.fecha_completado,
+            "total_correctas": resultado.total_correctas,
+            "total_falladas": resultado.total_falladas,
+            "nombre_cuestionario": nombre
+        })
+    return response
 
 
 @app.get("/resultados_cuestionarios/", tags=["Resultados cuestionarios"])
