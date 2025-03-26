@@ -32,7 +32,6 @@ Base.metadata.create_all(bind=engine)
 # Crear la instancia de FastAPI
 app = FastAPI()
 
-
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -106,6 +105,7 @@ class Temario(Base):
     nombre_temario = Column(String(80), nullable=False)
     descrip_temario = Column(String(500), nullable=False)
     contenido = Column(String(100))
+    titulo_video = Column(String(100))
     foto_temario = Column(String(100))
     videos_temario = Column(String(100))
 
@@ -233,7 +233,7 @@ class RolBase(BaseModel):
     rol: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ResultadoAlumnoConCuestionarioResponse(BaseModel):
     id_resultado_cuestionario: int
@@ -246,7 +246,14 @@ class ResultadoAlumnoConCuestionarioResponse(BaseModel):
     nombre_cuestionario: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
+
+class TemarioVideoCreate(BaseModel):
+    nombre_temario: str
+    descrip_temario: str
+    titulo_video: str
+    foto_temario: str
+    videos_temario: str
 
 
 class ClaseDetail(BaseModel):
@@ -256,7 +263,7 @@ class ClaseDetail(BaseModel):
     foto_clases: Optional[str] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class ResultadoAlumnoResponse(BaseModel):
@@ -269,7 +276,7 @@ class ResultadoAlumnoResponse(BaseModel):
     total_falladas: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class TemarioDetail(BaseModel):
     id_temario: int
@@ -281,7 +288,7 @@ class TemarioDetail(BaseModel):
     videos_temario: Optional[str] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class CuestionarioResponse(BaseModel):
     id_questionario: int
@@ -289,7 +296,7 @@ class CuestionarioResponse(BaseModel):
     fecha_publicacion: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class UsuarioBase(BaseModel):
     id_usuarios: int
@@ -301,7 +308,7 @@ class UsuarioBase(BaseModel):
     rol: RolBase
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 
@@ -314,7 +321,7 @@ class ExperimentoDetail(BaseModel):
     video_experimento: Optional[str]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class PerfilUsuarioBase(BaseModel):
@@ -327,7 +334,7 @@ class PerfilUsuarioBase(BaseModel):
     foto_perfil_usuario: Optional[str]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class CuestionarioDetail(BaseModel):
     id_questionario: int
@@ -338,7 +345,7 @@ class CuestionarioDetail(BaseModel):
     fecha_publicacion: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 #Rutas roles
 @app.post("/roles/", response_model=RolBase, tags=["Roles"])
@@ -374,13 +381,35 @@ def get_temarios_by_clase(id_clases: int, db: Session = Depends(get_db)):
 
 @app.get("/temarios/clase/{id_clases}/videos", tags=["Temarios"])
 def get_videos_temarios_by_clase(id_clases: int, db: Session = Depends(get_db)):
-    videos = db.query(Temario.videos_temario).filter(Temario.id_clases == id_clases).all()
-    if not videos:
+    results = (
+        db.query(Temario.titulo_video, Temario.foto_temario, Temario.videos_temario)
+        .filter(Temario.id_clases == id_clases).all()
+    )
+    if not results:
         raise HTTPException(status_code=404, detail="No se encontraron temarios para la clase especificada")
-    videos_list = [video for (video,) in videos if video is not None]
+    videos_list = [
+        {"titulo_video": titulo, "foto_temario": foto, "videos_temario": videos}
+        for titulo, foto, videos in results if videos is not None
+    ]
     if not videos_list:
         raise HTTPException(status_code=404, detail="No se encontraron videos disponibles para la clase especificada")
     return videos_list
+
+@app.post("/temarios/clase/{id_clases}/videos", tags=["Temarios"])
+def create_videos_temarios_by_clase(id_clases: int, temario_data: TemarioVideoCreate, db: Session = Depends(get_db)):
+    nuevo_temario = Temario(
+        id_clases=id_clases,
+        nombre_temario=temario_data.nombre_temario,
+        descrip_temario=temario_data.descrip_temario,
+        titulo_video=temario_data.titulo_video,
+        foto_temario=temario_data.foto_temario,
+        videos_temario=temario_data.videos_temario,
+        contenido=None  # Puedes asignar contenido si es necesario
+    )
+    db.add(nuevo_temario)
+    db.commit()
+    db.refresh(nuevo_temario)
+    return nuevo_temario
 
 @app.delete("/roles/{role_id}", response_model=RolBase, tags=["Roles"])
 def delete_rol(role_id: int, db: Session = Depends(get_db)):
@@ -533,6 +562,19 @@ def create_clase(nombre_clases: str, descripcion_clases: str, contenido: str = N
     db.refresh(new_clase)
     return new_clase
 
+@app.post("/clases/{clase_id}/media", tags=["Clases"])
+def update_clase_media(clase_id: int, foto_clases: str = None, video_clases: str = None, db: Session = Depends(get_db)):
+    existing_clase = db.query(Clase).filter(Clase.id_clases == clase_id).first()
+    if not existing_clase:
+        raise HTTPException(status_code=404, detail="Clase no encontrada")
+    if foto_clases is not None:
+        existing_clase.foto_clases = foto_clases
+    if video_clases is not None:
+        existing_clase.video_clases = video_clases
+    db.commit()
+    db.refresh(existing_clase)
+    return existing_clase
+
 
 @app.get("/clases/", tags=["Clases"])
 def read_clases(db: Session = Depends(get_db)):
@@ -644,10 +686,8 @@ def get_notas_por_clase_usuario(id_clases: int, id_usuario: int, db: Session = D
         .all()
     )
     if not resultados:
-        raise HTTPException(
-            status_code=404, 
-            detail="No se encontraron resultados para la clase y el usuario especificados"
-        )
+            return []
+        
     response = []
     for resultado, nombre in resultados:
         response.append({
@@ -683,19 +723,6 @@ def update_resultado_cuestionario(resultado_id: int, id_questionario: int, id_us
     db.commit()
     db.refresh(existing_resultado)
     return existing_resultado
-
-@app.post("/clases/{clase_id}/media", tags=["Clases"])
-def update_clase_media(clase_id: int, foto_clases: str = None, video_clases: str = None, db: Session = Depends(get_db)):
-    existing_clase = db.query(Clase).filter(Clase.id_clases == clase_id).first()
-    if not existing_clase:
-        raise HTTPException(status_code=404, detail="Clase no encontrada")
-    if foto_clases is not None:
-        existing_clase.foto_clases = foto_clases
-    if video_clases is not None:
-        existing_clase.video_clases = video_clases
-    db.commit()
-    db.refresh(existing_clase)
-    return existing_clase
 
 
 @app.delete("/resultados_cuestionarios/{resultado_id}", tags=["Resultados cuestionarios"])
