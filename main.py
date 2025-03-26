@@ -684,6 +684,19 @@ def update_resultado_cuestionario(resultado_id: int, id_questionario: int, id_us
     db.refresh(existing_resultado)
     return existing_resultado
 
+@app.post("/clases/{clase_id}/media", tags=["Clases"])
+def update_clase_media(clase_id: int, foto_clases: str = None, video_clases: str = None, db: Session = Depends(get_db)):
+    existing_clase = db.query(Clase).filter(Clase.id_clases == clase_id).first()
+    if not existing_clase:
+        raise HTTPException(status_code=404, detail="Clase no encontrada")
+    if foto_clases is not None:
+        existing_clase.foto_clases = foto_clases
+    if video_clases is not None:
+        existing_clase.video_clases = video_clases
+    db.commit()
+    db.refresh(existing_clase)
+    return existing_clase
+
 
 @app.delete("/resultados_cuestionarios/{resultado_id}", tags=["Resultados cuestionarios"])
 def delete_resultado_cuestionario(resultado_id: int, db: Session = Depends(get_db)):
