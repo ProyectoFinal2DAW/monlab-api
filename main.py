@@ -249,8 +249,7 @@ class ResultadoAlumnoConCuestionarioResponse(BaseModel):
         from_attributes = True
 
 class TemarioVideoCreate(BaseModel):
-    nombre_temario: str
-    descrip_temario: str
+    
     titulo_video: str
     foto_temario: str
     videos_temario: str
@@ -399,8 +398,8 @@ def get_videos_temarios_by_clase(id_clases: int, db: Session = Depends(get_db)):
 def create_videos_temarios_by_clase(id_clases: int, temario_data: TemarioVideoCreate, db: Session = Depends(get_db)):
     nuevo_temario = Temario(
         id_clases=id_clases,
-        nombre_temario=temario_data.nombre_temario,
-        descrip_temario=temario_data.descrip_temario,
+        nombre_temario="",      # Provide a value for nombre_temario
+        descrip_temario="",     # Provide a value for descrip_temario
         titulo_video=temario_data.titulo_video,
         foto_temario=temario_data.foto_temario,
         videos_temario=temario_data.videos_temario,
