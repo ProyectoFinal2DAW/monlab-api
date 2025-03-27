@@ -378,14 +378,33 @@ def get_temarios_by_clase(id_clases: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="No se encontraron temarios para la clase especificada")
     return temarios
 
+@app.get("/temarios/clase/{id_clases}/filter", response_model=List[TemarioDetail], tags=["Temarios"])
+def get_filtered_temarios_by_clase(
+    id_clases: int,
+    id_temario: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(Temario).filter(Temario.id_clases == id_clases)
+    if id_temario is not None:
+        query = query.filter(Temario.id_temario == id_temario)
+    temarios = query.all()
+    if not temarios:
+        raise HTTPException(
+            status_code=404,
+            detail="No se encontraron temarios para la clase especificada con los filtros aplicados"
+        )
+    return temarios
+
 @app.get("/temarios/clase/{id_clases}/videos", tags=["Temarios"])
-def get_videos_temarios_by_clase(id_clases: int, db: Session = Depends(get_db)):
-    results = (
-        db.query(Temario.titulo_video, Temario.foto_temario, Temario.videos_temario)
-        .filter(Temario.id_clases == id_clases).all()
-    )
+def get_videos_temarios_by_clase(id_clases: int, id_temario: Optional[int] = None, db: Session = Depends(get_db)):
+    query = db.query(Temario.titulo_video, Temario.foto_temario, Temario.videos_temario).filter(Temario.id_clases == id_clases)
+    if id_temario is not None:
+        query = query.filter(Temario.id_temario == id_temario)
+    results = query.all()
+
     if not results:
         raise HTTPException(status_code=404, detail="No se encontraron temarios para la clase especificada")
+    
     videos_list = [
         {"titulo_video": titulo, "foto_temario": foto, "videos_temario": videos}
         for titulo, foto, videos in results if videos is not None
@@ -394,21 +413,29 @@ def get_videos_temarios_by_clase(id_clases: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="No se encontraron videos disponibles para la clase especificada")
     return videos_list
 
-@app.post("/temarios/clase/{id_clases}/videos", tags=["Temarios"])
-def create_videos_temarios_by_clase(id_clases: int, temario_data: TemarioVideoCreate, db: Session = Depends(get_db)):
-    nuevo_temario = Temario(
-        id_clases=id_clases,
-        nombre_temario="",      # Provide a value for nombre_temario
-        descrip_temario="",     # Provide a value for descrip_temario
-        titulo_video=temario_data.titulo_video,
-        foto_temario=temario_data.foto_temario,
-        videos_temario=temario_data.videos_temario,
-        contenido=None  # Puedes asignar contenido si es necesario
-    )
-    db.add(nuevo_temario)
+@app.put("/temarios/clase/{id_clases}/videos", tags=["Temarios"])
+def update_videos_temarios_by_clase(
+    id_clases: int,
+    id_temario: int,
+    temario_data: TemarioVideoCreate,
+    db: Session = Depends(get_db)
+):
+    # Buscar el temario existente por id_clases e id_temario
+    temario = db.query(Temario).filter(
+        Temario.id_clases == id_clases,
+        Temario.id_temario == id_temario
+    ).first()
+    if not temario:
+        raise HTTPException(status_code=404, detail="No se encontró temario para la clase y temario especificados")
+    
+    # Actualizar los campos de video
+    temario.titulo_video = temario_data.titulo_video
+    temario.foto_temario = temario_data.foto_temario
+    temario.videos_temario = temario_data.videos_temario
+    
     db.commit()
-    db.refresh(nuevo_temario)
-    return nuevo_temario
+    db.refresh(temario)
+    return temario
 
 @app.delete("/roles/{role_id}", response_model=RolBase, tags=["Roles"])
 def delete_rol(role_id: int, db: Session = Depends(get_db)):
