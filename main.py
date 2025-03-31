@@ -685,12 +685,24 @@ def delete_cuestionario(cuestionario_id: int, db: Session = Depends(get_db)):
 
 # Rutas para Resultados de Cuestionarios
 @app.post("/resultados_cuestionarios/", tags=["Resultados cuestionarios"])
-def create_resultado_cuestionario(id_questionario: int, id_usuarios: int, nota: int, fecha_completado: datetime, total_correctas: int, total_falladas: int, db: Session = Depends(get_db)):
+def create_resultado_cuestionario(
+    id_questionario: int, 
+    id_usuarios: int, 
+    nota: int, 
+    total_correctas: int, 
+    total_falladas: int, 
+    db: Session = Depends(get_db)
+):
+    # Obtener la fecha actual en el formato "YYYY-MM-DD HH:MM:SS"
+    fecha_actual_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    fecha_actual = datetime.strptime(fecha_actual_str, "%Y-%m-%d %H:%M:%S")
+    
+    # Se elimina la verificación de registro_existente para permitir duplicados
     nuevo_resultado = ResultadoCuestionario(
         id_questionario=id_questionario,
         id_usuarios=id_usuarios,
         nota=nota,
-        fecha_completado=fecha_completado,
+        fecha_completado=fecha_actual,
         total_correctas=total_correctas,
         total_falladas=total_falladas
     )
