@@ -63,12 +63,6 @@ def get_db():
 
 app = FastAPI()
 
-# Configuración SFTP
-SFTP_HOST = "sftp.mon-lab.shop"
-SFTP_PORT = 22
-SFTP_USER = "raulcasgar"
-SFTP_PASSWORD = "raul2003"
-REMOTE_PATH = "/var/www/html/images/"
 
 @app.post("/upload/")
 async def upload_file(file: UploadFile = File(...)):
