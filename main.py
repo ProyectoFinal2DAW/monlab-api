@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
-
+import uuid
 load_dotenv()
 
 # Leer las variables de entorno
@@ -61,9 +61,6 @@ def get_db():
         db.close()
 
 
-from fastapi import FastAPI, File, UploadFile, HTTPException
-import paramiko
-import uuid
 app = FastAPI()
 
 # Configuración SFTP
