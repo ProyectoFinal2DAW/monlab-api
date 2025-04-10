@@ -1,4 +1,7 @@
 import os
+import paramiko
+from io import BytesIO
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy import Float, create_engine, Column, Integer, String, Enum, DateTime, ForeignKey
@@ -17,6 +20,13 @@ USER = os.getenv("DB_USER")
 PASSWORD = os.getenv("DB_PASSWORD")
 HOST = os.getenv("DB_HOST")
 PORT = int(os.getenv("DB_PORT"))
+
+
+SFTP_HOST = os.getenv("SFTP_HOST")
+SFTP_PORT = int(os.getenv("SFTP_PORT"))
+SFTP_USER = os.getenv("SFTP_USER")
+SFTP_PASSWORD = os.getenv("SFTP_PASSWORD")
+REMOTE_PATH = os.getenv("REMOTE_PATH")
 
 # Crear la URL de conexión a la base de datos
 DATABASE_URL = f"mysql+pymysql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DATABASE}"
@@ -49,6 +59,31 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+@app.post("/upload/")
+async def upload_file(file: UploadFile = File(...)):
+    try:
+        # Leer contenido del archivo
+        file_content = await file.read()
+        
+        # Conectar con el servidor SFTP
+        transport = paramiko.Transport((SFTP_HOST, SFTP_PORT))
+        transport.connect(username=SFTP_USER, password=SFTP_PASSWORD)
+        sftp = paramiko.SFTPClient.from_transport(transport)
+        
+        # Subir archivo
+        remote_filepath = REMOTE_PATH + file.filename
+        with sftp.file(remote_filepath, "wb") as remote_file:
+            remote_file.write(file_content)
+        
+        # Cerrar conexión
+        sftp.close()
+        transport.close()
+        
+        return {"message": "File uploaded successfully", "filename": file.filename, "remote_path": remote_filepath}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Definir modelos de base de datos
 class Rol(Base):
