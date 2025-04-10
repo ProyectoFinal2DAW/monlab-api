@@ -61,9 +61,24 @@ def get_db():
         db.close()
 
 
+from fastapi import FastAPI, File, UploadFile, HTTPException
+import paramiko
+import uuid
+app = FastAPI()
+
+# Configuración SFTP
+SFTP_HOST = "sftp.mon-lab.shop"
+SFTP_PORT = 22
+SFTP_USER = "raulcasgar"
+SFTP_PASSWORD = "raul2003"
+REMOTE_PATH = "/var/www/html/images"
+
 @app.post("/upload/")
 async def upload_file(file: UploadFile = File(...)):
     try:
+        # Generar un identificador único para el archivo
+        unique_filename = f"{uuid.uuid4().hex}_{file.filename}"
+        
         # Leer contenido del archivo
         file_content = await file.read()
         
@@ -72,8 +87,8 @@ async def upload_file(file: UploadFile = File(...)):
         transport.connect(username=SFTP_USER, password=SFTP_PASSWORD)
         sftp = paramiko.SFTPClient.from_transport(transport)
         
-        # Subir archivo
-        remote_filepath = REMOTE_PATH + file.filename
+        # Subir archivo con nombre único
+        remote_filepath = REMOTE_PATH + unique_filename
         with sftp.file(remote_filepath, "wb") as remote_file:
             remote_file.write(file_content)
         
@@ -81,9 +96,10 @@ async def upload_file(file: UploadFile = File(...)):
         sftp.close()
         transport.close()
         
-        return {"message": "File uploaded successfully", "filename": file.filename, "remote_path": remote_filepath}
+        return {"message": "File uploaded successfully", "filename": remote_filepath}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # Definir modelos de base de datos
 class Rol(Base):
