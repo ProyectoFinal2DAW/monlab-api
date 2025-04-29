@@ -408,7 +408,7 @@ def get_contenido_temarios_by_clase(id_clases: int, db: Session = Depends(get_db
 
 @app.get("/temarios/clase/{id_clases}", response_model=List[TemarioDetail], tags=["Temarios"])
 def get_temarios_by_clase(id_clases: int, db: Session = Depends(get_db)):
-    temarios = db.query(Temario).filter(Temario.id_clases == id_clases).all()
+    temarios = db.query(Temario).filter(Temario.id_clases == id_clases).order_by(Temario.nombre_temario).all()
     if not temarios:
         raise HTTPException(status_code=404, detail="No se encontraron temarios para la clase especificada")
     return temarios
