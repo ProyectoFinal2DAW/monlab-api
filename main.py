@@ -4,14 +4,14 @@ from io import BytesIO
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, Depends
-from sqlalchemy import Float, create_engine, Column, Integer, String, Enum, DateTime, ForeignKey
+from sqlalchemy import Float, create_engine, Column, Integer, String, Enum, DateTime, ForeignKey, text  
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
 from pydantic import BaseModel
 from typing import List, Optional
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
-import uuid
+
 load_dotenv()
 
 # Leer las variables de entorno
@@ -61,15 +61,9 @@ def get_db():
         db.close()
 
 
-app = FastAPI()
-
-
 @app.post("/upload/")
 async def upload_file(file: UploadFile = File(...)):
     try:
-        # Generar un identificador único para el archivo
-        unique_filename = f"{uuid.uuid4().hex}_{file.filename}"
-        
         # Leer contenido del archivo
         file_content = await file.read()
         
@@ -78,8 +72,8 @@ async def upload_file(file: UploadFile = File(...)):
         transport.connect(username=SFTP_USER, password=SFTP_PASSWORD)
         sftp = paramiko.SFTPClient.from_transport(transport)
         
-        # Subir archivo con nombre único
-        remote_filepath = REMOTE_PATH + unique_filename
+        # Subir archivo
+        remote_filepath = REMOTE_PATH + file.filename
         with sftp.file(remote_filepath, "wb") as remote_file:
             remote_file.write(file_content)
         
@@ -87,10 +81,9 @@ async def upload_file(file: UploadFile = File(...)):
         sftp.close()
         transport.close()
         
-        return {"message": "File uploaded successfully", "filename": remote_filepath}
+        return {"message": "File uploaded successfully", "filename": file.filename, "remote_path": remote_filepath}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # Definir modelos de base de datos
 class Rol(Base):
@@ -251,23 +244,23 @@ class DatoExperimento(Base):
 
     id_datos = Column(String(50), primary_key=True)
     id_experimento = Column(Integer, ForeignKey("EXPERIMENTOS.id_experimento"), nullable=False)
-    masa1 = Column(Float)
-    masa2 = Column(Float)
-    masa3 = Column(Float)
-    masa4 = Column(Float)
-    velocidad1 = Column(Float)
-    velocidad2 = Column(Float)
-    velocidad3 = Column(Float)
-    velocidad4 = Column(Float)
-    velocidad5 = Column(Float)
-    altura1 = Column(Float)
-    altura2 = Column(Float)
-    altura3 = Column(Float)
-    altura4 = Column(Float)
-    tiempo1 = Column(Float)
-    tiempo2 = Column(Float)
-    tiempo3 = Column(Float)
-    tiempo4 = Column(Float)
+    masa1 = Column(Float, nullable=True)
+    masa2 = Column(Float, nullable=True)
+    masa3 = Column(Float, nullable=True)
+    masa4 = Column(Float, nullable=True)
+    velocidad1 = Column(Float, nullable=True)
+    velocidad2 = Column(Float, nullable=True)
+    velocidad3 = Column(Float, nullable=True)
+    velocidad4 = Column(Float, nullable=True)
+    velocidad5 = Column(Float, nullable=True)
+    altura1 = Column(Float, nullable=True)
+    altura2 = Column(Float, nullable=True)
+    altura3 = Column(Float, nullable=True)
+    altura4 = Column(Float, nullable=True)
+    tiempo1 = Column(Float, nullable=True)
+    tiempo2 = Column(Float, nullable=True)
+    tiempo3 = Column(Float, nullable=True)
+    tiempo4 = Column(Float, nullable=True)
 
 # Modelos Pydantic para las respuestas
 class RolBase(BaseModel):
@@ -1139,10 +1132,29 @@ def create_datos_experimento(id_datos: str, id_experimento: int, masa1: float = 
     return nuevo_dato_experimento
 
 
-@app.get("/datos_experimentos/", tags=["Datos Experimentos"])
-def read_datos_experimentos(db: Session = Depends(get_db)):
-    datos_experimentos = db.query(DatoExperimento).all()
-    return datos_experimentos
+@app.get("/datos_experimentos_debug/", tags=["Datos Experimentos"])
+def debug_datos_experimentos(db: Session = Depends(get_db)):
+    # Get raw data from the table
+    from sqlalchemy import text
+    result = db.execute(text("SELECT * FROM DATOS_EXPERIMENTOS LIMIT 5"))
+    columns = result.keys()
+    rows = result.fetchall()
+    
+    # Construct response with column names and types
+    data = []
+    for row in rows:
+        item = {}
+        for i, column in enumerate(columns):
+            item[column] = {
+                'value': str(row[i]),
+                'type': type(row[i]).__name__
+            }
+        data.append(item)
+    
+    return {
+        "column_names": list(columns),
+        "data": data
+    }
 
 
 @app.put("/datos_experimentos/{id_datos}", tags=["Datos Experimentos"])
