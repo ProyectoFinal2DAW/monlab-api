@@ -1103,13 +1103,49 @@ def delete_video_experimento(video_id: int, db: Session = Depends(get_db)):
 
 @app.get("/datos_experimentos/experimento/{id_experimento}", tags=["Datos Experimentos"])
 def get_datos_por_experimento(id_experimento: int, db: Session = Depends(get_db)):
-    datos = db.query(DatoExperimento).filter(DatoExperimento.id_experimento == id_experimento).all()
-    if not datos:
+    try:
+        # Usar SQL directo con parámetros para mayor control
+        from sqlalchemy import text
+        sql = text("SELECT * FROM DATOS_EXPERIMENTOS WHERE id_experimento = :id_exp")
+        result = db.execute(sql, {"id_exp": id_experimento})
+        
+        columns = result.keys()
+        rows = result.fetchall()
+        
+        # Si no hay filas, devolver 404
+        if not rows:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"No se encontraron datos para el experimento con id {id_experimento}"
+            )
+        
+        # Construir respuesta con manejo seguro de tipos
+        data = []
+        for row in rows:
+            item = {}
+            for i, column in enumerate(columns):
+                value = row[i]
+                # Convertir todos los valores a tipos básicos para la serialización JSON
+                if value is None:
+                    item[column] = None
+                elif hasattr(value, 'isoformat') and callable(getattr(value, 'isoformat')):
+                    # Si es una fecha/datetime, convertir a string ISO
+                    item[column] = value.isoformat()
+                else:
+                    # Para otros valores, usar str para asegurar compatibilidad
+                    item[column] = str(value) if not isinstance(value, (int, float, bool)) else value
+            data.append(item)
+        
+        return data
+    
+    except Exception as e:
+        # Registrar el error para depuración
+        print(f"Error al recuperar datos: {str(e)}")
+        # Devolver un mensaje amigable para el usuario
         raise HTTPException(
-            status_code=404, 
-            detail=f"No se encontraron datos para el experimento con id {id_experimento}"
+            status_code=500,
+            detail=f"Error al recuperar datos del experimento: {str(e)}"
         )
-    return datos
 
 # Rutas para Datos Experimentos
 @app.post("/datos_experimentos/", tags=["Datos Experimentos"])
