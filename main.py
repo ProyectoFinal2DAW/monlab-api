@@ -1101,6 +1101,15 @@ def delete_video_experimento(video_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Video Experimento eliminado con éxito"}
 
+@app.get("/datos_experimentos/experimento/{id_experimento}", tags=["Datos Experimentos"])
+def get_datos_por_experimento(id_experimento: int, db: Session = Depends(get_db)):
+    datos = db.query(DatoExperimento).filter(DatoExperimento.id_experimento == id_experimento).all()
+    if not datos:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"No se encontraron datos para el experimento con id {id_experimento}"
+        )
+    return datos
 
 # Rutas para Datos Experimentos
 @app.post("/datos_experimentos/", tags=["Datos Experimentos"])
