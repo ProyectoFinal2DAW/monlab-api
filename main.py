@@ -435,6 +435,7 @@ def get_videos_temarios_by_clase(id_clases: int, id_temario: Optional[int] = Non
     query = db.query(Temario.titulo_video, Temario.foto_temario, Temario.videos_temario).filter(Temario.id_clases == id_clases)
     if id_temario is not None:
         query = query.filter(Temario.id_temario == id_temario)
+    query = query.order_by(Temario.titulo_video)  
     results = query.all()
 
     if not results:
