@@ -1,4 +1,5 @@
 import os
+from fastapi.responses import JSONResponse
 import paramiko
 from io import BytesIO
 from fastapi import FastAPI, File, UploadFile, HTTPException
@@ -394,6 +395,11 @@ def create_rol(rol: str, db: Session = Depends(get_db)):
 @app.get("/roles/", response_model=List[RolBase], tags=["Roles"])
 def read_roles(db: Session = Depends(get_db)):
     roles = db.query(Rol).all()
+    if not roles:
+        raise HTTPException(
+            status_code=404, 
+            detail="No se encontraron roles en la base de datos"
+        )
     return roles
 
 
@@ -533,6 +539,11 @@ def create_usuario(id_roles: int, usuario: str, email: str, contrasena: str, est
 @app.get("/usuarios/", response_model=List[UsuarioBase], tags=["Usuarios"])
 def read_usuarios(db: Session = Depends(get_db)):
     usuarios = db.query(Usuario).all()
+    if not usuarios:
+        raise HTTPException(
+            status_code=404, 
+            detail="No se encontraron usuarios en la base de datos"
+        )
     return usuarios
 
 
@@ -641,6 +652,11 @@ def update_clase_media(clase_id: int, foto_clases: str = None, video_clases: str
 @app.get("/clases/", tags=["Clases"])
 def read_clases(db: Session = Depends(get_db)):
     clases = db.query(Clase).all()
+    if not clases:
+        raise HTTPException(
+            status_code=404, 
+            detail="No se encontraron clases en la base de datos"
+        )
     return clases
 
 
@@ -693,6 +709,11 @@ def get_cuestionario(cuestionario_id: int, db: Session = Depends(get_db)):
 @app.get("/cuestionarios/", tags=["Cuestionarios"])
 def read_cuestionarios(db: Session = Depends(get_db)):
     cuestionarios = db.query(Cuestionario).all()
+    if not cuestionarios:
+        raise HTTPException(
+            status_code=404, 
+            detail="No se encontraron cuestionarios en la base de datos"
+        )
     return cuestionarios
 
 
@@ -760,7 +781,10 @@ def get_notas_por_clase_usuario(id_clases: int, id_usuario: int, db: Session = D
         .all()
     )
     if not resultados:
-            return []
+            raise HTTPException(
+            status_code=404, 
+            detail="No se encontraron cuestionarios en la base de datos"
+        )
         
     response = []
     for resultado, nombre in resultados:
@@ -780,6 +804,11 @@ def get_notas_por_clase_usuario(id_clases: int, id_usuario: int, db: Session = D
 @app.get("/resultados_cuestionarios/", tags=["Resultados cuestionarios"])
 def read_resultados_cuestionarios(db: Session = Depends(get_db)):
     resultados = db.query(ResultadoCuestionario).all()
+    if not resultados:
+        raise HTTPException(
+            status_code=404, 
+            detail="No se encontraron resultados de cuestionarios en la base de datos"
+        )
     return resultados
 
 
@@ -828,6 +857,11 @@ def create_temario(id_clases: int, nombre_temario: str, descrip_temario: str, co
 @app.get("/temarios/", tags=["Temarios"])
 def read_temarios(db: Session = Depends(get_db)):
     temarios = db.query(Temario).all()
+    if not temarios:
+        raise HTTPException(
+            status_code=404, 
+            detail="No se encontraron temarios en la base de datos"
+        )
     return temarios
 
 
@@ -882,6 +916,11 @@ def create_experimento(nombre_experimento: str, descrip_experimento: str, foto_e
 @app.get("/experimentos/", tags=["Experimentos"])
 def read_experimentos(db: Session = Depends(get_db)):
     experimentos = db.query(Experimento).all()
+    if not experimentos:
+        raise HTTPException(
+            status_code=404, 
+            detail="No se encontraron experimentos en la base de datos"
+        )
     return experimentos
 
 @app.put("/experimentos/{experimento_id}", tags=["Experimentos"])
@@ -928,6 +967,11 @@ def create_pregunta(id_questionario: int, enunciado: str, respuesta: str, correc
 @app.get("/preguntas/", tags=["Preguntas"])
 def read_preguntas(db: Session = Depends(get_db)):
     preguntas = db.query(Pregunta).all()
+    if not preguntas:
+        raise HTTPException(
+            status_code=404, 
+            detail="No se encontraron preguntas en la base de datos"
+        )
     return preguntas
 
 
@@ -987,6 +1031,11 @@ def create_clase_usuario(id_usuarios: int, id_clases: int, db: Session = Depends
 @app.get("/clases_usuarios/", tags=["Clases Usuarios"])
 def read_clases_usuarios(db: Session = Depends(get_db)):
     clases_usuarios = db.query(ClaseUsuario).all()
+    if not preguntas:
+        raise HTTPException(
+            status_code=404, 
+            detail="No se encontraron preguntas en la base de datos"
+        )
     return clases_usuarios
 
 
@@ -1026,6 +1075,11 @@ def create_temario_cuestionario(id_clases: int, id_questionario: int, id_temario
 @app.get("/temarios_cuestionarios/", tags=["Temarios Cuestionarios"])
 def read_temarios_cuestionarios(db: Session = Depends(get_db)):
     temarios_cuestionarios = db.query(TemarioCuestionario).all()
+    if not preguntas:
+        raise HTTPException(
+            status_code=404, 
+            detail="No se encontraron preguntas en la base de datos"
+        )
     return temarios_cuestionarios
 
 
@@ -1076,6 +1130,11 @@ def create_video_experimento(id_experimento: int, nombre_experimento: str, descr
 @app.get("/videos_experimentos/", tags=["Videos Experimentos"])
 def read_videos_experimentos(db: Session = Depends(get_db)):
     videos_experimentos = db.query(VideoExperimento).all()
+    if not preguntas:
+        raise HTTPException(
+            status_code=404, 
+            detail="No se encontraron preguntas en la base de datos"
+        )
     return videos_experimentos
 
 
@@ -1186,6 +1245,13 @@ def debug_datos_experimentos(db: Session = Depends(get_db)):
     columns = result.keys()
     rows = result.fetchall()
     
+    # Check if we have any rows
+    if not rows:
+        raise HTTPException(
+            status_code=404, 
+            detail="No se encontraron datos de experimentos en la base de datos"
+        )
+    
     # Construct response with column names and types
     data = []
     for row in rows:
@@ -1240,34 +1306,6 @@ def delete_datos_experimento(id_datos: str, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Dato Experimento eliminado con éxito"}
 
-# Rutas para Temarios Experimentos
-@app.post("/temarios_experimentos/", tags=["Temarios Experimentos"])
-def create_temario_experimento(id_temario: int, id_experimento: int, db: Session = Depends(get_db)):
-    nuevo_temario_experimento = TemarioExperimento(
-        id_temario=id_temario,
-        id_experimento=id_experimento
-    )
-    db.add(nuevo_temario_experimento)
-    db.commit()
-    return {"message": "Experimento asignado al temario con éxito"}
-
-
-@app.get("/temarios_experimentos/", tags=["Temarios Experimentos"])
-def read_temarios_experimentos(db: Session = Depends(get_db)):
-    temarios_experimentos = db.query(TemarioExperimento).all()
-    return temarios_experimentos
-
-
-@app.put("/temarios_experimentos/{id}", tags=["Temarios Experimentos"])
-def update_temario_experimento(id: int, id_temario: int, id_experimento: int, db: Session = Depends(get_db)):
-    existing_temario_experimento = db.query(TemarioExperimento).filter(TemarioExperimento.id == id).first()
-    if not existing_temario_experimento:
-        raise HTTPException(status_code=404, detail="Temario Experimento no encontrado")
-    existing_temario_experimento.id_temario = id_temario
-    existing_temario_experimento.id_experimento = id_experimento
-    db.commit()
-    db.refresh(existing_temario_experimento)
-    return {"message": "Temario Experimento actualizado con éxito"}
 
 @app.get("/clases/{clase_id}/participantes", response_model=List[UsuarioBase], tags=["Clases"])
 def get_participantes_de_clase(clase_id: int, db: Session = Depends(get_db)):
@@ -1280,16 +1318,6 @@ def get_participantes_de_clase(clase_id: int, db: Session = Depends(get_db)):
     if not participantes:
         raise HTTPException(status_code=404, detail="No se encontraron participantes para la clase especificada")
     return participantes
-
-
-@app.delete("/temarios_experimentos/{id}", tags=["Temarios Experimentos"])
-def delete_temario_experimento(id: int, db: Session = Depends(get_db)):
-    temario_experimento = db.query(TemarioExperimento).filter(TemarioExperimento.id == id).first()
-    if not temario_experimento:
-        raise HTTPException(status_code=404, detail="Temario Experimento no encontrado")
-    db.delete(temario_experimento)
-    db.commit()
-    return {"message": "Temario Experimento eliminado con éxito"}
 
 
 @app.get("/health/", response_model=dict, tags=["Health"])
