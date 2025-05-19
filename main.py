@@ -1031,7 +1031,7 @@ def create_clase_usuario(id_usuarios: int, id_clases: int, db: Session = Depends
 @app.get("/clases_usuarios/", tags=["Clases Usuarios"])
 def read_clases_usuarios(db: Session = Depends(get_db)):
     clases_usuarios = db.query(ClaseUsuario).all()
-    if not preguntas:
+    if not clases_usuarios:
         raise HTTPException(
             status_code=404, 
             detail="No se encontraron preguntas en la base de datos"
@@ -1075,7 +1075,7 @@ def create_temario_cuestionario(id_clases: int, id_questionario: int, id_temario
 @app.get("/temarios_cuestionarios/", tags=["Temarios Cuestionarios"])
 def read_temarios_cuestionarios(db: Session = Depends(get_db)):
     temarios_cuestionarios = db.query(TemarioCuestionario).all()
-    if not preguntas:
+    if not temarios_cuestionarios:
         raise HTTPException(
             status_code=404, 
             detail="No se encontraron preguntas en la base de datos"
@@ -1130,7 +1130,7 @@ def create_video_experimento(id_experimento: int, nombre_experimento: str, descr
 @app.get("/videos_experimentos/", tags=["Videos Experimentos"])
 def read_videos_experimentos(db: Session = Depends(get_db)):
     videos_experimentos = db.query(VideoExperimento).all()
-    if not preguntas:
+    if not videos_experimentos:
         raise HTTPException(
             status_code=404, 
             detail="No se encontraron preguntas en la base de datos"
