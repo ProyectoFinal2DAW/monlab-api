@@ -99,7 +99,7 @@ class Usuario(Base):
 
     id_usuarios = Column(Integer, primary_key=True, index=True, autoincrement=True)
     id_roles = Column(Integer, ForeignKey("ROLES.id_roles"), nullable=False)
-    usuario = Column(String(20), nullable=False, unique=True)
+    usuario = Column(String(255), nullable=False, unique=True)
     email = Column(String(150), nullable=False, unique=True)
     contrasena = Column(String(255), nullable=False)
     estado = Column(Enum('activa', 'desactivada'), nullable=False)
@@ -280,6 +280,7 @@ class ResultadoAlumnoConCuestionarioResponse(BaseModel):
     total_correctas: int
     total_falladas: int
     nombre_cuestionario: str
+    nombre_usuario: str
 
     class Config:
         from_attributes = True
@@ -819,13 +820,12 @@ def get_resultados_por_usuario_y_clase(id_usuario: int, id_clases: int, db: Sess
 
 @app.get("/resultados_cuestionarios/clase/{id_clases}", response_model=List[ResultadoAlumnoConCuestionarioResponse], tags=["Resultados cuestionarios"])
 def get_resultados_por_clase(id_clases: int, db: Session = Depends(get_db)):
-    """
-    Obtiene todos los resultados de cuestionarios de una clase específica
-    """
+  
     resultados = (
-        db.query(ResultadoCuestionario, Cuestionario.nombre_cuestionario)
+        db.query(ResultadoCuestionario, Cuestionario.nombre_cuestionario, Usuario.usuario)
         .join(TemarioCuestionario, TemarioCuestionario.id_questionario == ResultadoCuestionario.id_questionario)
         .join(Cuestionario, Cuestionario.id_questionario == ResultadoCuestionario.id_questionario)
+        .join(Usuario, Usuario.id_usuarios == ResultadoCuestionario.id_usuarios)
         .filter(TemarioCuestionario.id_clases == id_clases)
         .all()
     )
@@ -837,7 +837,7 @@ def get_resultados_por_clase(id_clases: int, db: Session = Depends(get_db)):
         )
     
     response = []
-    for resultado, nombre in resultados:
+    for resultado, nombre_cuestionario, nombre_usuario in resultados:
         response.append({
             "id_resultado_cuestionario": resultado.id_resultado_cuestionario,
             "id_questionario": resultado.id_questionario,
@@ -846,7 +846,8 @@ def get_resultados_por_clase(id_clases: int, db: Session = Depends(get_db)):
             "fecha_completado": resultado.fecha_completado,
             "total_correctas": resultado.total_correctas,
             "total_falladas": resultado.total_falladas,
-            "nombre_cuestionario": nombre
+            "nombre_cuestionario": nombre_cuestionario,
+            "nombre_usuario": nombre_usuario
         })
     return response
 
