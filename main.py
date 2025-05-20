@@ -94,7 +94,6 @@ class Rol(Base):
     rol = Column(String(20), nullable=False, unique=True)
     usuarios = relationship("Usuario", back_populates="rol")
 
-
 class Usuario(Base):
     __tablename__ = "USUARIOS"
 
@@ -105,6 +104,7 @@ class Usuario(Base):
     contrasena = Column(String(255), nullable=False)
     estado = Column(Enum('activa', 'desactivada'), nullable=False)
     fecha_creacion = Column(DateTime, default=datetime.utcnow)
+    profileImage = Column(String(255), nullable=True)
     perfil = relationship("PerfilUsuario", back_populates="usuario", uselist=False)
     rol = relationship("Rol", back_populates="usuarios")
 
@@ -339,8 +339,9 @@ class UsuarioBase(BaseModel):
     usuario: str
     email: str
     estado: str
-    fecha_creacion: datetime
+    fecha_creacion: Optional[datetime] = None  # Make this field optional
     rol: RolBase
+    profileImage: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -489,12 +490,26 @@ def delete_rol(role_id: int, db: Session = Depends(get_db)):
     return rol
 
 
-@app.get("/clases/{clase_id}", response_model=ClaseDetail, tags=["Clases"])
-def get_clase(clase_id: int, db: Session = Depends(get_db)):
-    clase = db.query(Clase).filter(Clase.id_clases == clase_id).first()
-    if not clase:
-        raise HTTPException(status_code=404, detail="Clase no encontrada")
-    return clase
+@app.get("/usuarios/{id_usuario}/clases", response_model=List[ClaseDetail], tags=["Usuarios"])
+def get_clases_por_usuario(id_usuario: int, db: Session = Depends(get_db)):
+    """
+    Obtiene todas las clases a las que pertenece un usuario específico
+    """
+    clases = (
+        db.query(Clase)
+        .join(ClaseUsuario, ClaseUsuario.id_clases == Clase.id_clases)
+        .filter(ClaseUsuario.id_usuarios == id_usuario)
+        .all()
+    )
+    
+    if not clases:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No se encontraron clases para el usuario con ID {id_usuario}"
+        )
+        
+    return clases
+
 
 
 @app.put("/roles/{role_id}", response_model=RolBase, tags=["Roles"])
@@ -518,7 +533,7 @@ def get_experimento(experimento_id: int, db: Session = Depends(get_db)):
 
 #Rutas usuarios
 @app.post("/usuarios/", response_model=UsuarioBase, tags=["Usuarios"])
-def create_usuario(id_roles: int, usuario: str, email: str, contrasena: str, estado: str, db: Session = Depends(get_db)):
+def create_usuario(id_roles: int, usuario: str, email: str, contrasena: str, estado: str, profileImage: str = None, db: Session = Depends(get_db)):
     rol = db.query(Rol).filter(Rol.id_roles == id_roles).first()
     if not rol:
         raise HTTPException(status_code=404, detail="Rol no encontrado")
@@ -529,6 +544,7 @@ def create_usuario(id_roles: int, usuario: str, email: str, contrasena: str, est
         email=email,
         contrasena=contrasena,
         estado=estado,
+        profileImage=profileImage
     )
     db.add(new_usuario)
     db.commit()
@@ -578,6 +594,18 @@ def get_clase(clase_id: int, db: Session = Depends(get_db)):
     if not clase:
         raise HTTPException(status_code=404, detail="Clase no encontrada")
     return clase
+
+@app.get("/usuarios/email/{email}", response_model=UsuarioBase, tags=["Usuarios"])
+def get_usuario_by_email(email: str, db: Session = Depends(get_db)):
+    usuario = db.query(Usuario).filter(Usuario.email == email).first()
+    
+    if not usuario:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"No se encontró ningún usuario con el email: {email}"
+        )
+    
+    return usuario
 
 #Rutas perfil usuarios
 
@@ -767,6 +795,60 @@ def create_resultado_cuestionario(
     db.commit()
     db.refresh(nuevo_resultado)
     return nuevo_resultado
+
+@app.get("/resultados_cuestionarios/usuario/{id_usuario}/clase/{id_clases}", response_model=List[ResultadoAlumnoResponse], tags=["Resultados cuestionarios"])
+def get_resultados_por_usuario_y_clase(id_usuario: int, id_clases: int, db: Session = Depends(get_db)):
+  
+    resultados = (
+        db.query(ResultadoCuestionario)
+        .join(TemarioCuestionario, TemarioCuestionario.id_questionario == ResultadoCuestionario.id_questionario)
+        .filter(
+            ResultadoCuestionario.id_usuarios == id_usuario,
+            TemarioCuestionario.id_clases == id_clases
+        )
+        .all()
+    )
+    
+    if not resultados:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No se encontraron resultados de cuestionarios para el usuario {id_usuario} en la clase {id_clases}"
+        )
+        
+    return resultados
+
+@app.get("/resultados_cuestionarios/clase/{id_clases}", response_model=List[ResultadoAlumnoConCuestionarioResponse], tags=["Resultados cuestionarios"])
+def get_resultados_por_clase(id_clases: int, db: Session = Depends(get_db)):
+    """
+    Obtiene todos los resultados de cuestionarios de una clase específica
+    """
+    resultados = (
+        db.query(ResultadoCuestionario, Cuestionario.nombre_cuestionario)
+        .join(TemarioCuestionario, TemarioCuestionario.id_questionario == ResultadoCuestionario.id_questionario)
+        .join(Cuestionario, Cuestionario.id_questionario == ResultadoCuestionario.id_questionario)
+        .filter(TemarioCuestionario.id_clases == id_clases)
+        .all()
+    )
+    
+    if not resultados:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No se encontraron resultados de cuestionarios para la clase {id_clases}"
+        )
+    
+    response = []
+    for resultado, nombre in resultados:
+        response.append({
+            "id_resultado_cuestionario": resultado.id_resultado_cuestionario,
+            "id_questionario": resultado.id_questionario,
+            "id_usuarios": resultado.id_usuarios,
+            "nota": resultado.nota,
+            "fecha_completado": resultado.fecha_completado,
+            "total_correctas": resultado.total_correctas,
+            "total_falladas": resultado.total_falladas,
+            "nombre_cuestionario": nombre
+        })
+    return response
 
 @app.get("/notas/clase/{id_clases}/usuario/{id_usuario}", response_model=List[ResultadoAlumnoConCuestionarioResponse], tags=["Notas"])
 def get_notas_por_clase_usuario(id_clases: int, id_usuario: int, db: Session = Depends(get_db)):
