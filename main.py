@@ -922,12 +922,13 @@ def delete_resultado_cuestionario(resultado_id: int, db: Session = Depends(get_d
 
 # Rutas para Temarios
 @app.post("/temarios/", tags=["Temarios"])
-def create_temario(id_clases: int, nombre_temario: str, descrip_temario: str, contenido: str = None, foto_temario: str = None, videos_temario: str = None, db: Session = Depends(get_db)):
+def create_temario(id_clases: int, nombre_temario: str, descrip_temario: str, contenido: str = None, titulo_video: str = None, foto_temario: str = None, videos_temario: str = None, db: Session = Depends(get_db)):
     nuevo_temario = Temario(
         id_clases=id_clases,
         nombre_temario=nombre_temario,
         descrip_temario=descrip_temario,
         contenido=contenido,
+        titulo_video=titulo_video,
         foto_temario=foto_temario,
         videos_temario=videos_temario
     )
@@ -949,7 +950,7 @@ def read_temarios(db: Session = Depends(get_db)):
 
 
 @app.put("/temarios/{temario_id}", tags=["Temarios"])
-def update_temario(temario_id: int, id_clases: int, nombre_temario: str, descrip_temario: str, contenido: str = None, foto_temario: str = None, videos_temario: str = None, db: Session = Depends(get_db)):
+def update_temario(temario_id: int, id_clases: int, nombre_temario: str, descrip_temario: str, contenido: str = None, titulo_video: str = None, foto_temario: str = None, videos_temario: str = None, db: Session = Depends(get_db)):
     existing_temario = db.query(Temario).filter(Temario.id_temario == temario_id).first()
     if not existing_temario:
         raise HTTPException(status_code=404, detail="Temario no encontrado")
@@ -957,6 +958,7 @@ def update_temario(temario_id: int, id_clases: int, nombre_temario: str, descrip
     existing_temario.nombre_temario = nombre_temario
     existing_temario.descrip_temario = descrip_temario
     existing_temario.contenido = contenido
+    existing_temario.titulo_video = titulo_video
     existing_temario.foto_temario = foto_temario
     existing_temario.videos_temario = videos_temario
     db.commit()
