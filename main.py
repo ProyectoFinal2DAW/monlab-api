@@ -1,6 +1,6 @@
 import os
 from fastapi.responses import JSONResponse
-import paramiko
+import ftplib  # Changed from paramiko to ftplib
 from io import BytesIO
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from datetime import datetime
@@ -23,10 +23,10 @@ HOST = os.getenv("DB_HOST")
 PORT = int(os.getenv("DB_PORT"))
 
 
-SFTP_HOST = os.getenv("SFTP_HOST")
-SFTP_PORT = int(os.getenv("SFTP_PORT"))
-SFTP_USER = os.getenv("SFTP_USER")
-SFTP_PASSWORD = os.getenv("SFTP_PASSWORD")
+FTP_HOST = os.getenv("FTP_HOST")
+FTP_PORT = int(os.getenv("FTP_PORT", "21"))  # Default FTP port is 21
+FTP_USER = os.getenv("FTP_USER")
+FTP_PASSWORD = os.getenv("FTP_PASSWORD")
 REMOTE_PATH = os.getenv("REMOTE_PATH")
 
 # Crear la URL de conexión a la base de datos
@@ -68,21 +68,28 @@ async def upload_file(file: UploadFile = File(...)):
         # Leer contenido del archivo
         file_content = await file.read()
         
-        # Conectar con el servidor SFTP
-        transport = paramiko.Transport((SFTP_HOST, SFTP_PORT))
-        transport.connect(username=SFTP_USER, password=SFTP_PASSWORD)
-        sftp = paramiko.SFTPClient.from_transport(transport)
+        # Conectar con el servidor FTP
+        ftp = ftplib.FTP()
+        ftp.connect(FTP_HOST, FTP_PORT)
+        ftp.login(FTP_USER, FTP_PASSWORD)
         
-        # Subir archivo
-        remote_filepath = REMOTE_PATH + file.filename
-        with sftp.file(remote_filepath, "wb") as remote_file:
-            remote_file.write(file_content)
+        # Cambiar al directorio remoto si está especificado
+        if REMOTE_PATH and REMOTE_PATH != "/":
+            ftp.cwd(REMOTE_PATH)
+        
+        # Subir archivo usando STOR
+        with BytesIO(file_content) as file_obj:
+            ftp.storbinary(f"STOR {file.filename}", file_obj)
+        
+        # Construir la ruta completa del archivo
+        remote_filepath = REMOTE_PATH.rstrip("/") + "/" + file.filename if REMOTE_PATH else file.filename
         
         # Cerrar conexión
-        sftp.close()
-        transport.close()
+        ftp.quit()
         
         return {"message": "File uploaded successfully", "filename": file.filename, "remote_path": remote_filepath}
+    except ftplib.all_errors as ftp_error:
+        raise HTTPException(status_code=500, detail=f"FTP Error: {str(ftp_error)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
