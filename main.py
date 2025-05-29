@@ -1,6 +1,6 @@
 import os
 from fastapi.responses import JSONResponse
-import ftplib  # Changed from paramiko to ftplib
+import paramiko  # Changed back from ftplib to paramiko
 from io import BytesIO
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from datetime import datetime
@@ -13,6 +13,7 @@ from typing import List, Optional
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 
+
 load_dotenv()
 
 # Leer las variables de entorno
@@ -23,10 +24,10 @@ HOST = os.getenv("DB_HOST")
 PORT = int(os.getenv("DB_PORT"))
 
 
-FTP_HOST = os.getenv("FTP_HOST")
-FTP_PORT = int(os.getenv("FTP_PORT", "21"))  # Default FTP port is 21
-FTP_USER = os.getenv("FTP_USER")
-FTP_PASSWORD = os.getenv("FTP_PASSWORD")
+SFTP_HOST = os.getenv("SFTP_HOST")
+SFTP_PORT = int(os.getenv("SFTP_PORT", "22"))  # Default SFTP port is 22
+SFTP_USER = os.getenv("SFTP_USER")
+SFTP_PASSWORD = os.getenv("SFTP_PASSWORD")
 REMOTE_PATH = os.getenv("REMOTE_PATH")
 
 # Crear la URL de conexión a la base de datos
@@ -68,30 +69,39 @@ async def upload_file(file: UploadFile = File(...)):
         # Leer contenido del archivo
         file_content = await file.read()
         
-        # Conectar con el servidor FTP
-        ftp = ftplib.FTP()
-        ftp.connect(FTP_HOST, FTP_PORT)
-        ftp.login(FTP_USER, FTP_PASSWORD)
+        # Conectar con el servidor SFTP
+        transport = paramiko.Transport((SFTP_HOST, SFTP_PORT))
+        transport.connect(username=SFTP_USER, password=SFTP_PASSWORD)
+        sftp = paramiko.SFTPClient.from_transport(transport)
         
         # Cambiar al directorio remoto si está especificado
-        if REMOTE_PATH and REMOTE_PATH != "/":
-            ftp.cwd(REMOTE_PATH)
+        if REMOTE_PATH:
+            try:
+                sftp.chdir(REMOTE_PATH)
+            except IOError:
+                # Si el directorio no existe, intentar crearlo
+                sftp.mkdir(REMOTE_PATH)
+                sftp.chdir(REMOTE_PATH)
         
-        # Subir archivo usando STOR
+        # Subir archivo
         with BytesIO(file_content) as file_obj:
-            ftp.storbinary(f"STOR {file.filename}", file_obj)
+            sftp.putfo(file_obj, file.filename)
         
         # Construir la ruta completa del archivo
-        remote_filepath = REMOTE_PATH.rstrip("/") + "/" + file.filename if REMOTE_PATH else file.filename
+        remote_filepath = f"{REMOTE_PATH.rstrip('/')}/{file.filename}" if REMOTE_PATH else file.filename
         
-        # Cerrar conexión
-        ftp.quit()
+        # Cerrar conexiones
+        sftp.close()
+        transport.close()
         
         return {"message": "File uploaded successfully", "filename": file.filename, "remote_path": remote_filepath}
-    except ftplib.all_errors as ftp_error:
-        raise HTTPException(status_code=500, detail=f"FTP Error: {str(ftp_error)}")
+    except paramiko.AuthenticationException:
+        raise HTTPException(status_code=401, detail="SFTP Authentication failed")
+    except paramiko.SSHException as ssh_error:
+        raise HTTPException(status_code=500, detail=f"SFTP SSH Error: {str(ssh_error)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"SFTP Error: {str(e)}")
+
 
 # Definir modelos de base de datos
 class Rol(Base):
